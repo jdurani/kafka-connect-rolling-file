@@ -90,7 +90,7 @@ public class RollingFileReader {
             return null;
         }
         int idx = s.indexOf(RollingFileWriter.KEY_VALUE_SEPARATOR);
-        if (idx <= 0) {
+        if (idx < 0) {
             throw new ReadException("Wrong line format - [file=" + fileAbsolutePath + ", line=" + (linesRead + 1) + "] " + s);
         }
         Base64.Decoder dec = Base64.getDecoder();
