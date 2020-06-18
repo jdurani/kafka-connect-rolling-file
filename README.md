@@ -12,7 +12,7 @@ managing external datastores like S3 or HDFS.
 |---|---|---|---|---|
 |`rolling.file.directory`|HIGH|String| |Directory to write data to.|
 |`rolling.file.flush.count`|MEDIUM|LONG|100000|Number of records after which next file will be rolled.|
-|`rolling.file.flush.ms`|MEDIUM|LONG|10000|Time in milliseconds after which next file will be rolled.|
+|`rolling.file.flush.ms`|MEDIUM|LONG|10000|Time in milliseconds after which next file will be rolled.  This is rather fixed rate at which to roll file than time between two consequent rolls. I.e. roll of a file may happen before flush time elapses since last roll which was triggered by `rolling.file.flush.count`|
 
 _*Example configuration:*_ 
 ```properties

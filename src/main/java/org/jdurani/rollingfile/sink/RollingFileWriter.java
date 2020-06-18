@@ -8,6 +8,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.Objects;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -28,6 +31,11 @@ public class RollingFileWriter {
     private static final byte[] KEY_VALUE_SEPARATOR_BYTES = KEY_VALUE_SEPARATOR.getBytes();
     private static final byte[] EMPTY_BYTES = Base64.getEncoder().encode(new byte[0]);
 
+    private final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(1, r -> {
+        Thread t = new Thread(r);
+        t.setDaemon(true);
+        return t;
+    });
     private final TopicPartition tp;
     private final String dir;
     private final long flushCount;
@@ -37,6 +45,7 @@ public class RollingFileWriter {
     private OutputStream os;
     private File targetFile;
     private File openedFile;
+    private boolean destroyed = false;
 
     /**
      * New instance.
@@ -51,6 +60,13 @@ public class RollingFileWriter {
         this.dir = dir;
         this.flushCount = flushCount;
         this.flushMs = flushMs;
+        executor.scheduleWithFixedDelay(() -> {
+            try {
+                rollIfNeeded();
+            } catch (IOException e) {
+                LOG.error("Error while flushing data", e);
+            }
+        }, this.flushMs, this.flushMs, TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -91,9 +107,12 @@ public class RollingFileWriter {
      * @param r data to write
      *
      * @throws IOException in case of error
-     * @throws IllegalStateException if record does not belong to our topic-partition
+     * @throws IllegalStateException if record does not belong to our topic-partition or writer is destroyed
      */
     public synchronized void write(SinkRecord r) throws IOException, IllegalStateException {
+        if (destroyed) {
+            throw new IllegalStateException("Writer destroyed.");
+        }
         validateTopicPartition(r);
         openIfNeeded(r.kafkaOffset());
         os.write(toBase64(r.key()));
@@ -161,8 +180,8 @@ public class RollingFileWriter {
      */
     private synchronized void rollIfNeeded() throws IOException {
         long sinceLastRoll = System.currentTimeMillis() - lastFileRoll;
-        if (writtenLines >= flushCount
-                || (sinceLastRoll >= flushMs)) {
+        if (writtenLines > 0
+                && (writtenLines >= flushCount || sinceLastRoll >= flushMs)) {
             LOG.debug("Rolling file - written lines: {}, ms since last flush: {}", writtenLines, sinceLastRoll);
             close();
         }
@@ -193,5 +212,17 @@ public class RollingFileWriter {
             targetFile = target;
             lastFileRoll = System.currentTimeMillis();
         }
+    }
+
+    /**
+     * Close and destroy this instance.
+     *
+     * @throws IOException in case of error
+     * @see #close()
+     */
+    public synchronized void destroy() throws IOException {
+        close();
+        executor.shutdown();
+        destroyed = true;
     }
 }

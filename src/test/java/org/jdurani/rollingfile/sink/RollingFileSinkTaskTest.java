@@ -11,7 +11,6 @@ import org.jdurani.rollingfile.exception.FlushException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InOrder;
 import org.mockito.Mockito;
 
 class RollingFileSinkTaskTest {
@@ -82,8 +81,9 @@ class RollingFileSinkTaskTest {
         Mockito.verifyNoMoreInteractions(w1, w2);
 
         test.close(null);
-        flushAndCloseInOrder(w1);
-        flushAndCloseInOrder(w2);
+        Mockito.verify(w1).destroy();
+        Mockito.verify(w2).destroy();
+        Mockito.verifyNoMoreInteractions(w1, w2);
     }
 
     @Test
@@ -105,32 +105,9 @@ class RollingFileSinkTaskTest {
         Mockito.verifyNoMoreInteractions(w1, w2, w3, w4);
 
         test.close(Arrays.asList(new TopicPartition("", 0), new TopicPartition("", 2)));
-        flushAndCloseInOrder(w1);
-        flushAndCloseInOrder(w3);
-        Mockito.verifyNoMoreInteractions(w2, w4);
-    }
-
-    @Test
-    void putAndCloseFlushThrow() throws IOException {
-        RollingFileWriter w1 = Mockito.mock(RollingFileWriter.class);
-        RollingFileWriter w2 = Mockito.mock(RollingFileWriter.class);
-        RollingFileWriter w3 = Mockito.mock(RollingFileWriter.class);
-        Mockito.doReturn(w1, w2, w3).when(test).getWriter(Mockito.any());
-        SinkRecord s1 = new SinkRecord("", 0, null, null, null, null, 0);
-        SinkRecord s2 = new SinkRecord("", 1, null, null, null, null, 0);
-        SinkRecord s3 = new SinkRecord("", 3, null, null, null, null, 0);
-        test.put(Arrays.asList(s1, s2, s3));
-        Mockito.verify(w1).write(Mockito.same(s1));
-        Mockito.verify(w2).write(Mockito.same(s2));
-        Mockito.verify(w3).write(Mockito.same(s3));
-        Mockito.verifyNoMoreInteractions(w1, w2, w3);
-
-        Mockito.doThrow(new IOException("Expected")).when(w2).flush();
-        Assertions.assertThrows(CloseException.class, () -> test.close(null));
-        flushAndCloseInOrder(w1);
-        flushAndCloseInOrder(w3);
-        Mockito.verify(w2).flush();
-        Mockito.verifyNoMoreInteractions(w2);
+        Mockito.verify(w1).destroy();
+        Mockito.verify(w3).destroy();
+        Mockito.verifyNoMoreInteractions(w1, w2, w3, w4);
     }
 
     @Test
@@ -148,17 +125,11 @@ class RollingFileSinkTaskTest {
         Mockito.verify(w3).write(Mockito.same(s3));
         Mockito.verifyNoMoreInteractions(w1, w2, w3);
 
-        Mockito.doThrow(new IOException("Expected")).when(w2).close();
+        Mockito.doThrow(new IOException("Expected")).when(w2).destroy();
         Assertions.assertThrows(CloseException.class, () -> test.close(null));
-        flushAndCloseInOrder(w1);
-        flushAndCloseInOrder(w2);
-        flushAndCloseInOrder(w3);
-    }
-
-    private void flushAndCloseInOrder(RollingFileWriter w) throws IOException {
-        InOrder io = Mockito.inOrder(w);
-        io.verify(w).flush();
-        io.verify(w).close();
-        io.verifyNoMoreInteractions();
+        Mockito.verify(w1).destroy();
+        Mockito.verify(w2).destroy();
+        Mockito.verify(w3).destroy();
+        Mockito.verifyNoMoreInteractions(w1, w2, w3);
     }
 }

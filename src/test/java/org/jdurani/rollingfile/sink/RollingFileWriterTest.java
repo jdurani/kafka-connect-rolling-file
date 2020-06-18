@@ -14,9 +14,12 @@ import org.jdurani.rollingfile.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 class RollingFileWriterTest {
 
+    private static final Logger LOG = LoggerFactory.getLogger(RollingFileWriterTest.class);
     private final TopicPartition tp = new TopicPartition("t", 0);
     private String dir;
 
@@ -45,14 +48,15 @@ class RollingFileWriterTest {
 
     @Test
     void rollAfter100ms() throws IOException, InterruptedException {
-        RollingFileWriter w = new RollingFileWriter(tp, dir, Long.MAX_VALUE, 100);
+        long flushMs = 100;
+        RollingFileWriter w = new RollingFileWriter(tp, dir, Long.MAX_VALUE, flushMs);
         SinkRecord r = new SinkRecord(tp.topic(), tp.partition(), null, null, null, null, 0);
         w.write(r);
         validateNotRoll(r);
         w.write(r);
         validateNotRoll(r);
-        Thread.sleep(100L);
-        w.write(r); // yes, we need to write something in order to roll, for now, we keep it simple (i.e. no background scheduling)
+        Thread.sleep(5 * flushMs); // there is background thread - let is little space to do its job
+        LOG.info("Checking files.");
         validateFinalFile(r);
     }
 

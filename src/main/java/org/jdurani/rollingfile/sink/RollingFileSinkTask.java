@@ -110,8 +110,7 @@ public class RollingFileSinkTask extends SinkTask {
             RollingFileWriter item = writeInfoMap.remove(key);
             if (item != null) {
                 try {
-                    item.flush();
-                    item.close();
+                    item.destroy();
                 } catch (IOException e) {
                     LOG.error("Error flushing and closing data", e);
                     thrown.set(true);
