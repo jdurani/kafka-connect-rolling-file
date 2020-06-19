@@ -20,7 +20,15 @@ public class RollingFileConfig {
             + " flush time elapses since last roll which was triggered by '" + ROLLING_FILE_FLUSH_COUNT_CONFIG + "'";
 
     public static final String ROLLING_FILE_BATCH_SIZE_CONFIG = "rolling.file.batch.size";
-    private static final String BATCH_SIZE_DOC = "Maximum number of records to load from files in one batch.";
+    private static final String ROLLING_FILE_BATCH_SIZE_DOC = "Maximum number of records to load from files in one batch.";
+
+    public static final String ROLLING_FILE_IGNORE_TIMESTAMP_CONFIG = "rolling.file.ignore.timestamp";
+    private static final String ROLLING_FILE_IGNORE_TIMESTAMP_DOC = "Ignore stored timestamps of messages? If ignored, producer"
+            + " will assign timestamp based on current time.";
+
+    public static final String ROLLING_FILE_IGNORE_PARTITION_CONFIG = "rolling.file.ignore.partition";
+    private static final String ROLLING_FILE_IGNORE_PARTITION_DOC = "Ignored stored partitions of messages? If ignored, producer"
+            + " will assign partition based on key and partitioner.";
 
     private static final ConfigDef SINK = new ConfigDef()
             .define(ROLLING_FILE_DIRECTORY_CONFIG,
@@ -49,7 +57,17 @@ public class RollingFileConfig {
                     10_000,
                     ConfigDef.Range.atLeast(1),
                     ConfigDef.Importance.MEDIUM,
-                    BATCH_SIZE_DOC);
+                    ROLLING_FILE_BATCH_SIZE_DOC)
+            .define(ROLLING_FILE_IGNORE_PARTITION_CONFIG,
+                    ConfigDef.Type.BOOLEAN,
+                    Boolean.FALSE,
+                    ConfigDef.Importance.MEDIUM,
+                    ROLLING_FILE_IGNORE_PARTITION_DOC)
+            .define(ROLLING_FILE_IGNORE_TIMESTAMP_CONFIG,
+                    ConfigDef.Type.BOOLEAN,
+                    Boolean.FALSE,
+                    ConfigDef.Importance.MEDIUM,
+                    ROLLING_FILE_IGNORE_TIMESTAMP_DOC);
 
     /**
      * @return sink config

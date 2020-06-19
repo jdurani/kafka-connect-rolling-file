@@ -10,6 +10,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.kafka.connect.source.SourceRecord;
@@ -27,9 +28,11 @@ import org.slf4j.LoggerFactory;
 public class RollingFileSourceTask extends SourceTask {
 
     private static final Logger LOG = LoggerFactory.getLogger(RollingFileSourceTask.class);
-    private static final Pattern FILE_NAME_PATTERN = Pattern.compile("^[0-9]{10}-[0-9]{19}\\.txt$");
+    private static final Pattern FILE_NAME_PATTERN = Pattern.compile("^([0-9]{10})-[0-9]{19}\\.txt$");
     private String dir;
     private int batchSize;
+    private boolean ignoreTimestamp;
+    private boolean ignorePartition;
     private List<RollingFileReader> toRead;
     private final Set<String> fullyReadFiles = new HashSet<>();
 
@@ -42,6 +45,8 @@ public class RollingFileSourceTask extends SourceTask {
     public void start(Map<String, String> props) {
         dir = props.get(RollingFileConfig.ROLLING_FILE_DIRECTORY_CONFIG);
         batchSize = Integer.parseInt(props.get(RollingFileConfig.ROLLING_FILE_BATCH_SIZE_CONFIG));
+        ignorePartition = Boolean.parseBoolean(props.get(RollingFileConfig.ROLLING_FILE_IGNORE_PARTITION_CONFIG));
+        ignoreTimestamp = Boolean.parseBoolean(props.get(RollingFileConfig.ROLLING_FILE_IGNORE_TIMESTAMP_CONFIG));
     }
 
     @Override
@@ -54,7 +59,7 @@ public class RollingFileSourceTask extends SourceTask {
             for (Iterator<RollingFileReader> iterator = toRead.iterator(); iterator.hasNext(); ) {
                 RollingFileReader r = iterator.next();
                 SourceRecord next;
-                while ((next = r.nextRecord()) != null) {
+                while ((next = r.nextRecord(ignoreTimestamp)) != null) {
                     recs.add(next);
                     if (recs.size() >= batchSize) {
                         return recs;
@@ -99,9 +104,22 @@ public class RollingFileSourceTask extends SourceTask {
         OffsetStorageReader osr = context.offsetStorageReader();
         List<RollingFileReader> list = new ArrayList<>();
         for (File x : out) {
-            list.add(new RollingFileReader(x, x.getParentFile().getName(), osr));
+            list.add(new RollingFileReader(x, x.getParentFile().getName(), ignorePartition ? null : getPartition(x), osr));
         }
         return list;
+    }
+
+    /**
+     * Reads kafka partition from file name.
+     *
+     * @param f file
+     *
+     * @return partition
+     */
+    private int getPartition(File f) {
+        Matcher matcher = FILE_NAME_PATTERN.matcher(f.getName());
+        matcher.matches();
+        return Integer.parseInt(matcher.group(1));
     }
 
     @Override

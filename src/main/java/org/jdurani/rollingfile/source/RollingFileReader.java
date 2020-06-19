@@ -29,6 +29,7 @@ public class RollingFileReader {
     private final BufferedReader reader;
     private final String fileAbsolutePath;
     private final Map<String, String> sourcePartition;
+    private final Integer partition;
 
     private long linesRead;
     private long charsRead;
@@ -40,9 +41,10 @@ public class RollingFileReader {
      *
      * @throws IOException in case there is error while seeking to correct position in file
      */
-    public RollingFileReader(File data, String topic, OffsetStorageReader osr) throws IOException {
+    public RollingFileReader(File data, String topic, Integer partition, OffsetStorageReader osr) throws IOException {
         this.fileAbsolutePath = data.getAbsolutePath();
         this.topic = topic;
+        this.partition = partition;
         reader = new BufferedReader(new FileReader(data));
         sourcePartition = Collections.singletonMap(FILE_NAME_KEY, this.fileAbsolutePath);
         Map<String, Object> offset = osr.offset(sourcePartition);
@@ -85,24 +87,34 @@ public class RollingFileReader {
      *
      * @throws IOException in case of error while reading data
      */
-    public SourceRecord nextRecord() throws IOException {
+    public SourceRecord nextRecord(final boolean ignoreTimestamp) throws IOException {
         String s = reader.readLine();
         if (s == null) {
             return null;
         }
-        int idx = s.indexOf(RollingFileWriter.KEY_VALUE_SEPARATOR);
-        if (idx < 0) {
+        int idx1 = s.indexOf(RollingFileWriter.KEY_VALUE_SEPARATOR);
+        if (idx1 < 0) {
             throw new ReadException("Wrong line format - [file=" + fileAbsolutePath + ", line=" + (linesRead + 1) + "] " + s);
         }
-        byte[] key = decode(s.substring(0, idx));
-        byte[] value = decode(s.substring(idx + RollingFileWriter.KEY_VALUE_SEPARATOR.length()));
+        int keyStart = idx1 + RollingFileWriter.KEY_VALUE_SEPARATOR.length();
+        int idx2 = s.indexOf(RollingFileWriter.KEY_VALUE_SEPARATOR, keyStart);
+        if (idx2 < 0) {
+            throw new ReadException("Wrong line format - [file=" + fileAbsolutePath + ", line=" + (linesRead + 1) + "] " + s);
+        }
+        int valueStart = idx2 + RollingFileWriter.KEY_VALUE_SEPARATOR.length();
+        Long timestamp = decodeTimestamp(s.substring(0, idx1), ignoreTimestamp);
+        byte[] key = decode(s.substring(keyStart, idx2));
+        byte[] value = decode(s.substring(valueStart));
         Map<String, Long> sourceOffset = new HashMap<>();
         sourceOffset.put(LINES_READ_OFFSETS, ++linesRead);
         charsRead += s.length() + RollingFileWriter.RECORD_SEPARATOR.length;
         sourceOffset.put(CHARS_READ_OFFSETS, charsRead);
-        return new SourceRecord(sourcePartition, sourceOffset, topic,
+
+        return new SourceRecord(sourcePartition, sourceOffset,
+                topic, partition,
                 Schema.BYTES_SCHEMA, key,
-                Schema.BYTES_SCHEMA, value);
+                Schema.BYTES_SCHEMA, value,
+                timestamp);
     }
 
     /**
@@ -110,14 +122,29 @@ public class RollingFileReader {
      *
      * @return decoded bytes
      */
-    private byte[] decode(String s){
-        if(s.isEmpty()){
+    private byte[] decode(String s) {
+        if (s.isEmpty()) {
             return EMPTY_BYTES;
         }
-        if(RollingFileWriter.NULL_OBJECT.equals(s)){
+        if (RollingFileWriter.NULL_OBJECT.equals(s)) {
             return null;
         }
         return Base64.getDecoder().decode(s);
+    }
+
+    /**
+     * Decode string to Long.
+     *
+     * @param s string to decode
+     * @param ignore ignore timestamp?
+     *
+     * @return decoded timestamp as Long
+     */
+    private Long decodeTimestamp(String s, boolean ignore) {
+        if (ignore || RollingFileWriter.NO_TIMESTAMP.equals(s)) {
+            return null;
+        }
+        return Long.parseLong(s);
     }
 
     /**

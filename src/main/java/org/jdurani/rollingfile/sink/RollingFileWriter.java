@@ -26,9 +26,11 @@ public class RollingFileWriter {
 
     public static final String FILE_NAME_FORMAT = "%1$010d-%2$019d.txt";
     public static final String KEY_VALUE_SEPARATOR = " ";
+    public static final String NO_TIMESTAMP = "$NO_TS$";
     public static final byte[] RECORD_SEPARATOR = {'\n'};
 
     private static final byte[] KEY_VALUE_SEPARATOR_BYTES = KEY_VALUE_SEPARATOR.getBytes();
+    private static final byte[] NO_TIMESTAMP_BYTES = NO_TIMESTAMP.getBytes();
     public static final String NULL_OBJECT = "$NULL$";
     private static final byte[] NULL_BYTES = NULL_OBJECT.getBytes();
 
@@ -116,12 +118,24 @@ public class RollingFileWriter {
         }
         validateTopicPartition(r);
         openIfNeeded(r.kafkaOffset());
+        os.write(timestampToBytes(r));
+        os.write(KEY_VALUE_SEPARATOR_BYTES);
         os.write(toBase64(r.key()));
         os.write(KEY_VALUE_SEPARATOR_BYTES);
         os.write(toBase64(r.value()));
         os.write(RECORD_SEPARATOR);
         writtenLines++;
         rollIfNeeded();
+    }
+
+    /**
+     * @param r record
+     *
+     * @return timestamp as bytes
+     */
+    private byte[] timestampToBytes(SinkRecord r) {
+        Long ts = r.timestamp();
+        return ts == null ? NO_TIMESTAMP_BYTES : String.valueOf(ts).getBytes();
     }
 
     /**

@@ -110,30 +110,40 @@ class RollingFileWriterTest {
         byte[] value2 = {0, 1, 2, 3};
 
         SinkRecord r1 = new SinkRecord(tp.topic(), tp.partition(), null, null, null, null, 0);
+        SinkRecord r11 = new SinkRecord(tp.topic(), tp.partition(), null, value1, null, key1, 1, 123456L, null);
         w.write(r1);
-        w.write(new SinkRecord(tp.topic(), tp.partition(), null, value1, null, key1, 1));
+        w.write(r11);
         validateFinalFile(r1);
 
-        SinkRecord r2 = new SinkRecord(tp.topic(), tp.partition(), null, key1, null, value1, 2);
+        SinkRecord r2 = new SinkRecord(tp.topic(), tp.partition(), null, key1, null, value1, 2, 654321L, null);
+        SinkRecord r22 = new SinkRecord(tp.topic(), tp.partition(), null, key2, null, value2, 3);
         w.write(r2);
-        w.write(new SinkRecord(tp.topic(), tp.partition(), null, key2, null, value2, 3));
+        w.write(r22);
         validateFinalFile(r2);
 
         Assertions.assertEquals(
-                RollingFileWriter.NULL_OBJECT
+                RollingFileWriter.NO_TIMESTAMP
+                        + RollingFileWriter.KEY_VALUE_SEPARATOR
+                        + RollingFileWriter.NULL_OBJECT
                         + RollingFileWriter.KEY_VALUE_SEPARATOR
                         + RollingFileWriter.NULL_OBJECT
                         + new String(RollingFileWriter.RECORD_SEPARATOR)
+                        + r11.timestamp().toString()
+                        + RollingFileWriter.KEY_VALUE_SEPARATOR
                         + Base64.getEncoder().encodeToString(value1)
                         + RollingFileWriter.KEY_VALUE_SEPARATOR
                         + Base64.getEncoder().encodeToString(key1)
                         + new String(RollingFileWriter.RECORD_SEPARATOR),
                 readFile(r1));
         Assertions.assertEquals(
-                Base64.getEncoder().encodeToString(key1)
+                r2.timestamp().toString()
+                        + RollingFileWriter.KEY_VALUE_SEPARATOR
+                        + Base64.getEncoder().encodeToString(key1)
                         + RollingFileWriter.KEY_VALUE_SEPARATOR
                         + Base64.getEncoder().encodeToString(value1)
                         + new String(RollingFileWriter.RECORD_SEPARATOR)
+                        + RollingFileWriter.NO_TIMESTAMP
+                        + RollingFileWriter.KEY_VALUE_SEPARATOR
                         + Base64.getEncoder().encodeToString(key2)
                         + RollingFileWriter.KEY_VALUE_SEPARATOR
                         + Base64.getEncoder().encodeToString(value2)

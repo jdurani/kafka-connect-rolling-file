@@ -58,8 +58,8 @@ class RollingFileSourceTaskTest {
         SourceRecord r1s3 = Mockito.mock(SourceRecord.class);
         SourceRecord r2s1 = Mockito.mock(SourceRecord.class);
         SourceRecord r2s2 = Mockito.mock(SourceRecord.class);
-        Mockito.doReturn(r1s1, r1s2, r1s3, null).when(r1).nextRecord();
-        Mockito.doReturn(r2s1, r2s2, null).when(r2).nextRecord();
+        Mockito.doReturn(r1s1, r1s2, r1s3, null).when(r1).nextRecord(Mockito.anyBoolean());
+        Mockito.doReturn(r2s1, r2s2, null).when(r2).nextRecord(Mockito.anyBoolean());
 
         List<SourceRecord> polledFirst = test.poll();
         Assertions.assertNotNull(polledFirst);

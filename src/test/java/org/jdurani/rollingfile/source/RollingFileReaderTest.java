@@ -38,7 +38,7 @@ class RollingFileReaderTest {
     @Test
     void emptyFile() throws IOException {
         initTest(0, 0);
-        Assertions.assertNull(test.nextRecord());
+        Assertions.assertNull(test.nextRecord(false));
     }
 
     @Test
@@ -47,12 +47,12 @@ class RollingFileReaderTest {
         String l1 = l(key1, "bff5");
         String l2 = l("c", "d");
         Map<String, ?> sp = initTest(0, 0, l1, l2);
-        SourceRecord r1 = test.nextRecord();
-        SourceRecord r2 = test.nextRecord();
+        SourceRecord r1 = test.nextRecord(false);
+        SourceRecord r2 = test.nextRecord(false);
         Assertions.assertAll(
                 () -> Assertions.assertNotNull(r1),
                 () -> Assertions.assertNotNull(r2),
-                () -> Assertions.assertNull(test.nextRecord()));
+                () -> Assertions.assertNull(test.nextRecord(false)));
         Assertions.assertAll(
                 () -> Assertions.assertSame(Schema.BYTES_SCHEMA, r1.keySchema()),
                 () -> Assertions.assertSame(Schema.BYTES_SCHEMA, r1.valueSchema()),
@@ -81,6 +81,52 @@ class RollingFileReaderTest {
     }
 
     @Test
+    void readTimestamps() throws IOException {
+        String l1 = l(100L, "a", "b");
+        Map<String, ?> sp = initTest(0, 0, l1);
+        SourceRecord r1 = test.nextRecord(false);
+        Assertions.assertAll(
+                () -> Assertions.assertNotNull(r1),
+                () -> Assertions.assertNull(test.nextRecord(false)));
+        Assertions.assertAll(
+                () -> Assertions.assertSame(Schema.BYTES_SCHEMA, r1.keySchema()),
+                () -> Assertions.assertSame(Schema.BYTES_SCHEMA, r1.valueSchema()),
+                () -> Assertions.assertNull(r1.kafkaPartition()),
+                () -> Assertions.assertEquals(100L, r1.timestamp()),
+                () -> Assertions.assertEquals(sp, r1.sourcePartition()),
+                () -> Assertions.assertArrayEquals(new byte[] {'a'}, (byte[]) r1.key()),
+                () -> Assertions.assertArrayEquals(new byte[] {'b'}, (byte[]) r1.value()));
+        Map<String, ?> so1 = r1.sourceOffset();
+        Assertions.assertNotNull(so1);
+        Assertions.assertAll(
+                () -> Assertions.assertEquals(1L, so1.get(RollingFileReader.LINES_READ_OFFSETS)),
+                () -> Assertions.assertEquals(l1.length() + (long) RollingFileWriter.RECORD_SEPARATOR.length, so1.get(RollingFileReader.CHARS_READ_OFFSETS)));
+    }
+
+    @Test
+    void readIgnoreTimestamps() throws IOException {
+        String l1 = l(100L, "a", "b");
+        Map<String, ?> sp = initTest(0, 0, l1);
+        SourceRecord r1 = test.nextRecord(true);
+        Assertions.assertAll(
+                () -> Assertions.assertNotNull(r1),
+                () -> Assertions.assertNull(test.nextRecord(false)));
+        Assertions.assertAll(
+                () -> Assertions.assertSame(Schema.BYTES_SCHEMA, r1.keySchema()),
+                () -> Assertions.assertSame(Schema.BYTES_SCHEMA, r1.valueSchema()),
+                () -> Assertions.assertNull(r1.kafkaPartition()),
+                () -> Assertions.assertNull(r1.timestamp()),
+                () -> Assertions.assertEquals(sp, r1.sourcePartition()),
+                () -> Assertions.assertArrayEquals(new byte[] {'a'}, (byte[]) r1.key()),
+                () -> Assertions.assertArrayEquals(new byte[] {'b'}, (byte[]) r1.value()));
+        Map<String, ?> so1 = r1.sourceOffset();
+        Assertions.assertNotNull(so1);
+        Assertions.assertAll(
+                () -> Assertions.assertEquals(1L, so1.get(RollingFileReader.LINES_READ_OFFSETS)),
+                () -> Assertions.assertEquals(l1.length() + (long) RollingFileWriter.RECORD_SEPARATOR.length, so1.get(RollingFileReader.CHARS_READ_OFFSETS)));
+    }
+
+    @Test
     void readWithInitialOffset() throws IOException {
         String l1 = l("a", "b");
         String l2 = l("c", "d");
@@ -88,10 +134,10 @@ class RollingFileReaderTest {
         long linesRead = 10;
         long charsRead = l1.length() + RollingFileWriter.RECORD_SEPARATOR.length;
         Map<String, ?> sp = initTest(charsRead, linesRead, l1, l2);
-        SourceRecord r2 = test.nextRecord();
+        SourceRecord r2 = test.nextRecord(false);
         Assertions.assertAll(
                 () -> Assertions.assertNotNull(r2),
-                () -> Assertions.assertNull(test.nextRecord()));
+                () -> Assertions.assertNull(test.nextRecord(false)));
         Assertions.assertAll(
                 () -> Assertions.assertSame(Schema.BYTES_SCHEMA, r2.keySchema()),
                 () -> Assertions.assertSame(Schema.BYTES_SCHEMA, r2.valueSchema()),
@@ -107,10 +153,16 @@ class RollingFileReaderTest {
                 () -> Assertions.assertEquals(charsRead + l2.length() + RollingFileWriter.RECORD_SEPARATOR.length, so2.get(RollingFileReader.CHARS_READ_OFFSETS)));
     }
 
-    private String l(String key, String value) {
-        return Base64.getEncoder().encodeToString(key.getBytes())
+    private String l(Long timestamp, String key, String value) {
+        return (timestamp == null ? RollingFileWriter.NO_TIMESTAMP : timestamp)
+                + RollingFileWriter.KEY_VALUE_SEPARATOR
+                + Base64.getEncoder().encodeToString(key.getBytes())
                 + RollingFileWriter.KEY_VALUE_SEPARATOR
                 + Base64.getEncoder().encodeToString(value.getBytes());
+    }
+
+    private String l(String key, String value) {
+        return l(null, key, value);
     }
 
     private Map<String, String> initTest(long charsRead, long linesRead, String... lines) throws IOException {
@@ -130,7 +182,7 @@ class RollingFileReaderTest {
         Mockito.doThrow(new AssertionError("wrong method")).when(osr).offsets(Mockito.any());
         Map<String, String> sourcePartition = Collections.singletonMap(RollingFileReader.FILE_NAME_KEY, data.getAbsolutePath());
         Mockito.doReturn(map).when(osr).offset(Mockito.eq(sourcePartition));
-        test = new RollingFileReader(data, "topic", osr);
+        test = new RollingFileReader(data, "topic", null, osr);
         return sourcePartition;
     }
 }
