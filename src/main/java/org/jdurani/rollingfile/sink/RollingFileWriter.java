@@ -207,6 +207,9 @@ public class RollingFileWriter {
             if (!parent.exists() && !parent.mkdirs()) {
                 throw new IOException("Cannot create parent directory " + parent.getAbsolutePath());
             }
+            if(target.exists() && !target.delete()){
+                throw new IOException("Target file '" + target.getAbsolutePath() + "'not deleted.");
+            }
             os = new FileOutputStream(opened, false); // we are writing same offsets again - we can override file
             openedFile = opened;
             targetFile = target;
