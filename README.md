@@ -5,9 +5,7 @@ to backup and restore data from Kafka topics on local file system without need o
 managing external datastores like S3 or HDFS.
 
 # Configuration
-
 ## Sink job
-
 |Property|Importance|Type|Default value|Description|
 |---|---|---|---|---|
 |`rolling.file.directory`|HIGH|String| |Directory to write data to.|
@@ -35,6 +33,8 @@ rolling.file.flush.ms=10000
 |---|---|---|---|---|
 |`rolling.file.directory`|HIGH|String| |Directory to load data from.|
 |`rolling.file.batch.size`|MEDIUM|INT|10000|Number of records to read and send to Kafka in one batch.|
+|`rolling.file.ignore.timestamp`|MEDIUM|BOOLEAN|false|Ignore stored timestamps of messages? If ignored, producer will assign timestamp based on current time.|
+|`rolling.file.ignore.partition`|MEDIUM|BOOLEAN|false|Ignored stored partitions of messages? If ignored, producer will assign partition based on key and partitioner.|
 
 _*Example configuration:*_ 
 ```properties
@@ -49,3 +49,19 @@ value.converter=org.apache.kafka.connect.converters.ByteArrayConverter
 rolling.file.directory=/data/backup
 rolling.file.batch.size=10000
 ```
+
+# Build
+To build plugin run `mvn clean package` command. After successfull build, install
+JAR file as new Kafka Connect plugin. E.g.:
+
+```shell script
+# path to your kafka connect plugins directory
+PATH_TO_KAFKA_CONNECT_PLUGINS=...
+RF_PLUGIN_PATH="${PATH_TO_KAFKA_CONNECT_PLUGINS}/kafka-connect-rolling-file/"
+mkdir -p ${RF_PLUGIN_PATH}
+cp target/rolling-file-kafka-connect-*.jar ${RF_PLUGIN_PATH}
+```
+
+## Docker
+If you use docker, then simply run `build.sh` scritp. It will build plugin and docker image with installed plugin.
+To deploy image to docker swarm, you may may take a look at a `docker-compose.yml` file.
