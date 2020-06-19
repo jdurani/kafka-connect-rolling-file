@@ -1,0 +1,23 @@
+version: '3.7'
+services:
+  connect:
+    image: kafka/connect/rolling-file:____________TODO____________
+    environment:
+      - CONNECT_REST_ADVERTISED_HOST_NAME=localhost
+      - CONNECT_BOOTSTRAP_SERVERS=____________TODO____________
+      - CONNECT_REST_PORT=8083
+      - CONNECT_GROUP_ID=kafka-connect-rolling-file
+      - CONNECT_CONFIG_STORAGE_TOPIC=kafka-connect-rolling-file-config
+      - CONNECT_OFFSET_STORAGE_TOPIC=kafka-connect-rolling-file-offset
+      - CONNECT_STATUS_STORAGE_TOPIC=kafka-connect-rolling-file-status
+    volumes:
+      - target: /data/backup/
+        source: ____________TODO-absolute-path____________
+        type: bind
+  ui:
+    image: landoop/kafka-connect-ui
+    environment:
+      - CONNECT_URL=http://connect:8083/;rolling-file
+    ports:
+      - published: 8000
+        target: 8000
