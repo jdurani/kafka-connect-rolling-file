@@ -1,4 +1,4 @@
-# Descriptions
+# Description
 This is a simple kafka connector which stores/reads data to/from rolling files.
 The primary goal of this connector is to provide simple and manageable way
 to backup and restore data from Kafka topics on local file system without need of
