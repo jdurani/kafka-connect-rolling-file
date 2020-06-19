@@ -29,7 +29,8 @@ public class RollingFileWriter {
     public static final byte[] RECORD_SEPARATOR = {'\n'};
 
     private static final byte[] KEY_VALUE_SEPARATOR_BYTES = KEY_VALUE_SEPARATOR.getBytes();
-    private static final byte[] EMPTY_BYTES = Base64.getEncoder().encode(new byte[0]);
+    public static final String NULL_OBJECT = "$NULL$";
+    private static final byte[] NULL_BYTES = NULL_OBJECT.getBytes();
 
     private final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(1, r -> {
         Thread t = new Thread(r);
@@ -141,13 +142,13 @@ public class RollingFileWriter {
     /**
      * @param value value to encode as base64
      *
-     * @return encoded bytes or {@link #EMPTY_BYTES} if vlaue is {@code null}
+     * @return encoded bytes or {@link #NULL_BYTES} if value is {@code null}
      *
      * @see #toBytes(Object)
      */
     private byte[] toBase64(Object value) {
         if (value == null) {
-            return EMPTY_BYTES;
+            return NULL_BYTES;
         }
         return Base64.getEncoder().encode(toBytes(value));
     }

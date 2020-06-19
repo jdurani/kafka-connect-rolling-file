@@ -23,6 +23,7 @@ public class RollingFileReader {
     static final String FILE_NAME_KEY = "file";
     static final String LINES_READ_OFFSETS = "lines_read";
     static final String CHARS_READ_OFFSETS = "chars_read";
+    private static final byte[] EMPTY_BYTES = new byte[0];
 
     private final String topic;
     private final BufferedReader reader;
@@ -93,9 +94,8 @@ public class RollingFileReader {
         if (idx < 0) {
             throw new ReadException("Wrong line format - [file=" + fileAbsolutePath + ", line=" + (linesRead + 1) + "] " + s);
         }
-        Base64.Decoder dec = Base64.getDecoder();
-        byte[] key = dec.decode(s.substring(0, idx));
-        byte[] value = dec.decode(s.substring(idx + RollingFileWriter.KEY_VALUE_SEPARATOR.length()));
+        byte[] key = decode(s.substring(0, idx));
+        byte[] value = decode(s.substring(idx + RollingFileWriter.KEY_VALUE_SEPARATOR.length()));
         Map<String, Long> sourceOffset = new HashMap<>();
         sourceOffset.put(LINES_READ_OFFSETS, ++linesRead);
         charsRead += s.length() + RollingFileWriter.RECORD_SEPARATOR.length;
@@ -103,6 +103,21 @@ public class RollingFileReader {
         return new SourceRecord(sourcePartition, sourceOffset, topic,
                 Schema.BYTES_SCHEMA, key,
                 Schema.BYTES_SCHEMA, value);
+    }
+
+    /**
+     * @param s string to decode from base64
+     *
+     * @return decoded bytes
+     */
+    private byte[] decode(String s){
+        if(s.isEmpty()){
+            return EMPTY_BYTES;
+        }
+        if(RollingFileWriter.NULL_OBJECT.equals(s)){
+            return null;
+        }
+        return Base64.getDecoder().decode(s);
     }
 
     /**

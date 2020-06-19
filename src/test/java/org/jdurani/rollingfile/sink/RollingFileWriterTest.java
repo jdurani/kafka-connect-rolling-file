@@ -104,8 +104,8 @@ class RollingFileWriterTest {
     @Test
     void write() throws IOException {
         RollingFileWriter w = new RollingFileWriter(tp, dir, 2, Long.MAX_VALUE);
-        byte[] key1 = {0};
-        byte[] value1 = {0, 1, 2};
+        byte[] key1 = {};
+        byte[] value1 = {};
         byte[] key2 = {0, 1};
         byte[] value2 = {0, 1, 2, 3};
 
@@ -120,9 +120,9 @@ class RollingFileWriterTest {
         validateFinalFile(r2);
 
         Assertions.assertEquals(
-                Base64.getEncoder().encodeToString(new byte[0])
+                RollingFileWriter.NULL_OBJECT
                         + RollingFileWriter.KEY_VALUE_SEPARATOR
-                        + Base64.getEncoder().encodeToString(new byte[0])
+                        + RollingFileWriter.NULL_OBJECT
                         + new String(RollingFileWriter.RECORD_SEPARATOR)
                         + Base64.getEncoder().encodeToString(value1)
                         + RollingFileWriter.KEY_VALUE_SEPARATOR
